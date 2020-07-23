@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package todo;
+
+option go_package = "todo-app/todo";
+
+import "google/api/annotations.proto";
+
+message CreateAccountRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message CreateAccountResponse {
+}
+
+service TodoApp {
+  rpc CreateAccount (CreateAccountRequest) returns (CreateAccountResponse) {
+    option (google.api.http) = {
+      post: "/accounts",
+      body: "*"
+    };
+  }
+}
