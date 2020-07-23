@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"net"
 	"net/http"
@@ -48,9 +49,19 @@ func configGateway(ctx context.Context, mux *runtime.ServeMux) {
 
 func setupCORSConfig() *cors.Cors {
 	return cors.New(cors.Options{
-		AllowedOrigins: []string{"localhost:5000"},
-		Debug:          true,
+		AllowedOrigins: []string{"http://localhost:5000"},
+		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Auth-Token"},
+		ExposedHeaders: []string{"X-Auth-Token"},
+		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodOptions},
 	})
+}
+
+func loginHandler(w http.ResponseWriter, r *http.Request) {
+	type Response struct {
+		Status string `json:"status"`
+	}
+	res := Response{Status: "ok"}
+	json.NewEncoder(w).Encode(&res)
 }
 
 func runGateway(gateway *todo.Gateway) {
@@ -63,10 +74,12 @@ func runGateway(gateway *todo.Gateway) {
 	configGateway(ctx, grpcRouter)
 
 	r.Handle("/accounts",
-		c.Handler(gateway.Authenticated(grpcRouter))).Methods(http.MethodPost)
+		gateway.Authenticated(grpcRouter)).Methods(http.MethodPost)
+	r.Handle("/login",
+		gateway.Authenticated(http.HandlerFunc(loginHandler))).Methods(http.MethodPost)
 
 	srv := &http.Server{
-		Handler:      r,
+		Handler:      c.Handler(r),
 		Addr:         ":8000",
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
