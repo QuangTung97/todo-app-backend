@@ -14,6 +14,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/cors"
 	"google.golang.org/grpc"
 )
 
@@ -45,15 +46,24 @@ func configGateway(ctx context.Context, mux *runtime.ServeMux) {
 	}
 }
 
+func setupCORSConfig() *cors.Cors {
+	return cors.New(cors.Options{
+		AllowedOrigins: []string{"localhost:5000"},
+		Debug:          true,
+	})
+}
+
 func runGateway(gateway *todo.Gateway) {
 	ctx := context.Background()
+
 	r := mux.NewRouter()
 	grpcRouter := runtime.NewServeMux()
+	c := setupCORSConfig()
 
 	configGateway(ctx, grpcRouter)
 
 	r.Handle("/accounts",
-		gateway.Authenticated(grpcRouter)).Methods(http.MethodPost)
+		c.Handler(gateway.Authenticated(grpcRouter))).Methods(http.MethodPost)
 
 	srv := &http.Server{
 		Handler:      r,

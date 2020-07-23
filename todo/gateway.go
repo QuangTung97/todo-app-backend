@@ -66,6 +66,7 @@ func (g *Gateway) getAccount(ctx context.Context) accountGetter {
 	}
 }
 
+// Authenticated : authentication middleware
 func (g *Gateway) Authenticated(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		username, password, ok := r.BasicAuth()

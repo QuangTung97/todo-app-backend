@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	RANDOM_SIZE = 20
+	tokenSecretSize = 20
 )
 
 var tokenExpiration = 60 * time.Minute
@@ -85,7 +85,7 @@ func verifyCredentials(
 			return 0, "", false, nil
 		}
 
-		b := make([]byte, RANDOM_SIZE)
+		b := make([]byte, tokenSecretSize)
 		_, err = rand.Read(b)
 		if err != nil {
 			return 0, "", false, err
