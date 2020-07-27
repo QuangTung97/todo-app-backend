@@ -52,7 +52,8 @@ func setupCORSConfig() *cors.Cors {
 		AllowedOrigins: []string{"http://localhost:5000"},
 		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Auth-Token"},
 		ExposedHeaders: []string{"X-Auth-Token"},
-		AllowedMethods: []string{http.MethodGet, http.MethodPost, http.MethodOptions},
+		AllowedMethods: []string{http.MethodGet, http.MethodPost,
+			http.MethodOptions, http.MethodPut, http.MethodDelete},
 	})
 }
 
@@ -61,7 +62,10 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		Status string `json:"status"`
 	}
 	res := Response{Status: "ok"}
-	json.NewEncoder(w).Encode(&res)
+	err := json.NewEncoder(w).Encode(&res)
+	if err != nil {
+		glog.Fatal(err)
+	}
 }
 
 func runGateway(gateway *todo.Gateway) {
@@ -73,10 +77,21 @@ func runGateway(gateway *todo.Gateway) {
 
 	configGateway(ctx, grpcRouter)
 
-	r.Handle("/accounts",
-		gateway.Authenticated(grpcRouter)).Methods(http.MethodPost)
+	// Setup routes
+	r.Handle("/accounts", grpcRouter).
+		Methods(http.MethodPost)
+
+	r.Handle("/todos",
+		gateway.Authenticated(grpcRouter)).
+		Methods(http.MethodPost, http.MethodPut, http.MethodGet)
+
+	r.Handle("/todos/{id}",
+		gateway.Authenticated(grpcRouter)).
+		Methods(http.MethodDelete)
+
 	r.Handle("/login",
-		gateway.Authenticated(http.HandlerFunc(loginHandler))).Methods(http.MethodPost)
+		gateway.Authenticated(http.HandlerFunc(loginHandler))).
+		Methods(http.MethodPost)
 
 	srv := &http.Server{
 		Handler:      c.Handler(r),
@@ -108,7 +123,7 @@ func connectToRedis() *redis.Client {
 func main() {
 	flag.Parse()
 
-	source := "root:1@tcp(127.0.0.1:3306)/todoapp"
+	source := "root:1@tcp(127.0.0.1:3306)/todoapp?parseTime=true"
 	db := sqlx.MustConnect("mysql", source)
 	redisClient := connectToRedis()
 

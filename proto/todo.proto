@@ -5,6 +5,7 @@ package todo;
 option go_package = "todo-app/todo";
 
 import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
 
 message CreateAccountRequest {
   string username = 1;
@@ -14,11 +15,76 @@ message CreateAccountRequest {
 message CreateAccountResponse {
 }
 
+message CreateTodoListRequest {
+  string name = 1;
+}
+
+message TodoList {
+  int32 id = 1;
+  int32 account_id = 2;
+  string name = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+message CreateTodoListResponse {
+  TodoList todo = 1;
+}
+
+message UpdateTodoListRequest {
+  int32 id = 1;
+  string name = 2;
+}
+
+message UpdateTodoListResponse {
+  TodoList todo = 1;
+}
+
+message GetTodoListRequest {
+}
+
+message GetTotoListResponse {
+  repeated TodoList todos = 1;
+}
+
+message DeleteTodoListResquest {
+  int32 id = 1;
+}
+
+message DeleteTodoListResponse {
+}
+
 service TodoApp {
   rpc CreateAccount (CreateAccountRequest) returns (CreateAccountResponse) {
     option (google.api.http) = {
       post: "/accounts",
       body: "*"
+    };
+  }
+
+  rpc CreateTodoList (CreateTodoListRequest) returns (CreateTodoListResponse) {
+    option (google.api.http) = {
+      post: "/todos",
+      body: "*"
+    };
+  }
+
+  rpc UpdateTodoList (UpdateTodoListRequest) returns (UpdateTodoListResponse) {
+    option (google.api.http) = {
+      put: "/todos",
+      body: "*"
+    };
+  }
+
+  rpc GetTodoList (GetTodoListRequest) returns (GetTotoListResponse) {
+    option (google.api.http) = {
+      get: "/todos",
+    };
+  }
+
+  rpc DeleteTodoList (DeleteTodoListResquest) returns (DeleteTodoListResponse) {
+    option (google.api.http) = {
+      delete: "/todos/{id}",
     };
   }
 }
