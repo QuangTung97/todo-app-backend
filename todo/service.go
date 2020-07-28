@@ -135,3 +135,110 @@ func (s *Service) DeleteTodoList(
 	})
 	return &DeleteTodoListResponse{}, err
 }
+
+func domainTodoItemToDTO(item todoItem) *TodoItem {
+	return &TodoItem{
+		Id:          int32(item.id),
+		TodoListId:  int32(item.todoListID),
+		Description: item.description,
+		Completed:   item.completed,
+		CreatedAt:   timestamppb.New(item.createdAt),
+	}
+}
+
+// CreateTodoItem create a todo item
+func (s *Service) CreateTodoItem(
+	ctx context.Context,
+	in *CreateTodoItemRequest,
+) (*CreateTodoItemResponse, error) {
+	accountID := getAccountID(ctx)
+
+	var item todoItem
+	var err error
+
+	err = s.repo.transact(ctx, func(tx *sqlx.Tx) error {
+		item, err = createTodoItem(
+			int(in.TodoListId), accountID,
+			in.Description,
+			s.repo.getTodoList(ctx, tx),
+			s.repo.createTodoItem(ctx, tx),
+		)
+		return err
+	})
+	return &CreateTodoItemResponse{
+		Item: domainTodoItemToDTO(item),
+	}, err
+}
+
+// GetTodoItems return list of todo items
+func (s *Service) GetTodoItems(
+	ctx context.Context,
+	in *GetTodoItemsRequest,
+) (*GetTodoItemsResponse, error) {
+	accountID := getAccountID(ctx)
+
+	items, err := selectTodoItems(
+		int(in.TodoListId), accountID,
+		s.repo.getTodoListNoTx(ctx),
+		s.repo.selectTodoItemsNoTx(ctx),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*TodoItem, 0)
+	for _, item := range items {
+		result = append(result, domainTodoItemToDTO(item))
+	}
+
+	return &GetTodoItemsResponse{
+		TodoItems: result,
+	}, nil
+}
+
+// UpdateTodoItemsCompleted update completed fields
+func (s *Service) UpdateTodoItemsCompleted(
+	ctx context.Context,
+	in *UpdateTodoItemsCompletedRequest,
+) (*UpdateTodoItemsCompletedResponse, error) {
+	accountID := getAccountID(ctx)
+
+	toBeCompleted := make([]int, 0)
+	for _, e := range in.ToBeCompletedIds {
+		toBeCompleted = append(toBeCompleted, int(e))
+	}
+
+	toBeActive := make([]int, 0)
+	for _, e := range in.ToBeActiveIds {
+		toBeActive = append(toBeActive, int(e))
+	}
+
+	err := s.repo.transact(ctx, func(tx *sqlx.Tx) error {
+		return updateTodoItemsCompleted(
+			int(in.TodoListId), accountID,
+			toBeCompleted, toBeActive,
+			s.repo.getTodoList(ctx, tx),
+			s.repo.selectTodoItems(ctx, tx),
+			s.repo.updateTodoItemsCompleted(ctx, tx),
+		)
+	})
+	return &UpdateTodoItemsCompletedResponse{}, err
+}
+
+// DeleteTodoItemsCompleted delete completed todo items
+func (s *Service) DeleteTodoItemsCompleted(
+	ctx context.Context,
+	in *DeleteTodoItemsCompletedRequest,
+) (*DeleteTodoItemsCompletedResponse, error) {
+	accountID := getAccountID(ctx)
+
+	err := s.repo.transact(ctx, func(tx *sqlx.Tx) error {
+		return deleteTodoItemsCompleted(
+			int(in.TodoListId), accountID,
+			s.repo.getTodoList(ctx, tx),
+			s.repo.deleteTodoItemsCompleted(ctx, tx),
+		)
+	})
+
+	return &DeleteTodoItemsCompletedResponse{}, err
+}

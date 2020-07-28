@@ -89,6 +89,22 @@ func runGateway(gateway *todo.Gateway) {
 		gateway.Authenticated(grpcRouter)).
 		Methods(http.MethodDelete)
 
+	r.Handle("/todo-items",
+		gateway.Authenticated(grpcRouter)).
+		Methods(http.MethodPost)
+
+	r.Handle("/todo-items/{todo_list_id}",
+		gateway.Authenticated(grpcRouter)).
+		Methods(http.MethodGet)
+
+	r.Handle("/todo-items/completed",
+		gateway.Authenticated(grpcRouter)).
+		Methods(http.MethodPut)
+
+	r.Handle("/todo-items/completed/{todo_list_id}",
+		gateway.Authenticated(grpcRouter)).
+		Methods(http.MethodDelete)
+
 	r.Handle("/login",
 		gateway.Authenticated(http.HandlerFunc(loginHandler))).
 		Methods(http.MethodPost)

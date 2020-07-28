@@ -93,6 +93,34 @@ func (repo *repository) getTodoList(ctx context.Context, tx *sqlx.Tx) todoListGe
 	}
 }
 
+func (repo *repository) getTodoListNoTx(ctx context.Context) todoListGetter {
+	return func(id int) (todoList, error) {
+		type Result struct {
+			ID        int       `db:"id"`
+			Name      string    `db:"name"`
+			AccountID int       `db:"account_id"`
+			CreatedAt time.Time `db:"created_at"`
+			UpdatedAt time.Time `db:"updated_at"`
+		}
+		r := Result{}
+
+		query := repo.db.Rebind(`
+            SELECT id, name, account_id,
+                created_at, updated_at
+            FROM todo_list WHERE id = ?
+            `)
+
+		err := repo.db.GetContext(ctx, &r, query, id)
+		return todoList{
+			id:        r.ID,
+			accountID: r.AccountID,
+			name:      r.Name,
+			createdAt: r.CreatedAt,
+			updatedAt: r.UpdatedAt,
+		}, err
+	}
+}
+
 func (repo *repository) updateTodoList(ctx context.Context, tx *sqlx.Tx) todoListUpdater {
 	return func(id int, name string) (time.Time, error) {
 		now := time.Now()
@@ -144,6 +172,138 @@ func (repo *repository) deleteTodoList(ctx context.Context, tx *sqlx.Tx) todoLis
 		query := repo.db.Rebind(`
             DELETE FROM todo_list WHERE id = ?`)
 		_, err := tx.ExecContext(ctx, query, id)
+		return err
+	}
+}
+
+func (repo *repository) createTodoItem(ctx context.Context, tx *sqlx.Tx) todoItemSaver {
+	return func(todoListID int, description string) (int, time.Time, error) {
+		now := time.Now()
+
+		query := repo.db.Rebind(`
+            INSERT INTO todo_item(
+                todo_list_id, description,
+                completed, created_at)
+            VALUES (?, ?, FALSE, ?)`)
+		res, err := tx.ExecContext(ctx, query, todoListID, description, now)
+		if err != nil {
+			return 0, now, err
+		}
+
+		id, err := res.LastInsertId()
+		return int(id), now, err
+	}
+}
+
+func (repo *repository) selectTodoItemsNoTx(ctx context.Context) todoItemSelecter {
+	return func(todoListID int) ([]todoItem, error) {
+		type Entity struct {
+			ID          int       `db:"id"`
+			Description string    `db:"description"`
+			Completed   bool      `db:"completed"`
+			CreatedAt   time.Time `db:"created_at"`
+		}
+		entities := make([]Entity, 0)
+		result := make([]todoItem, 0)
+
+		query := repo.db.Rebind(`
+            SELECT id, description, completed, created_at
+            FROM todo_item WHERE todo_list_id = ?`)
+		err := repo.db.SelectContext(ctx, &entities, query, todoListID)
+		if err != nil {
+			return result, err
+		}
+
+		for _, e := range entities {
+			result = append(result, todoItem{
+				id:          e.ID,
+				todoListID:  todoListID,
+				description: e.Description,
+				completed:   e.Completed,
+				createdAt:   e.CreatedAt,
+			})
+		}
+		return result, nil
+	}
+}
+
+func (repo *repository) selectTodoItems(ctx context.Context, tx *sqlx.Tx) todoItemSelecter {
+	return func(todoListID int) ([]todoItem, error) {
+		type Entity struct {
+			ID          int       `db:"id"`
+			Description string    `db:"description"`
+			Completed   bool      `db:"completed"`
+			CreatedAt   time.Time `db:"created_at"`
+		}
+		entities := make([]Entity, 0)
+		result := make([]todoItem, 0)
+
+		query := repo.db.Rebind(`
+            SELECT id, description, completed, created_at
+            FROM todo_item WHERE todo_list_id = ?`)
+		err := tx.SelectContext(ctx, &entities, query, todoListID)
+		if err != nil {
+			return result, err
+		}
+
+		for _, e := range entities {
+			result = append(result, todoItem{
+				id:          e.ID,
+				todoListID:  todoListID,
+				description: e.Description,
+				completed:   e.Completed,
+				createdAt:   e.CreatedAt,
+			})
+		}
+		return result, nil
+	}
+}
+
+func (repo *repository) updateTodoItemsCompleted(
+	ctx context.Context, tx *sqlx.Tx) todoItemsCompletedUpdater {
+	return func(toBeCompleted, toBeActive []int) error {
+		if len(toBeCompleted) > 0 {
+			query, args, err := sqlx.In(`
+            UPDATE todo_item
+            SET completed = TRUE
+            WHERE id IN (?)`, toBeCompleted)
+			if err != nil {
+				return err
+			}
+			query = repo.db.Rebind(query)
+			_, err = tx.ExecContext(ctx, query, args...)
+			if err != nil {
+				return err
+			}
+		}
+
+		if len(toBeActive) > 0 {
+			query, args, err := sqlx.In(`
+            UPDATE todo_item
+            SET completed = FALSE
+            WHERE id IN (?)`, toBeActive)
+			if err != nil {
+				return err
+			}
+			query = repo.db.Rebind(query)
+			_, err = tx.ExecContext(ctx, query, args...)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+}
+
+func (repo *repository) deleteTodoItemsCompleted(
+	ctx context.Context, tx *sqlx.Tx,
+) todoItemsCompletedDeleter {
+	return func(todoListID int) error {
+		query := repo.db.Rebind(`
+            DELETE FROM todo_item
+            WHERE todo_list_id = ? AND completed = TRUE`)
+		_, err := tx.ExecContext(ctx, query, todoListID)
 		return err
 	}
 }

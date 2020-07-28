@@ -108,7 +108,6 @@ func updateTodoList(
 }
 
 type todoListsByAccountGetter = func(accountID int) ([]todoList, error)
-
 type todoListDeleter = func(id int) error
 
 func deleteTodoList(
@@ -126,4 +125,125 @@ func deleteTodoList(
 	}
 
 	return deleter(id)
+}
+
+type todoItem struct {
+	id          int
+	todoListID  int
+	description string
+	completed   bool
+	createdAt   time.Time
+}
+
+type todoItemSaver = func(todoListID int, description string) (int, time.Time, error)
+type todoItemSelecter = func(todoListID int) ([]todoItem, error)
+type todoItemsCompletedUpdater = func(toBeCompleted []int, toBeActive []int) error
+type todoItemsCompletedDeleter = func(todoListID int) error
+
+func createTodoItem(
+	todoListID, accountID int,
+	description string,
+	getter todoListGetter,
+	saver todoItemSaver,
+) (todoItem, error) {
+	if len(description) < 4 || len(description) > 100 {
+		return todoItem{}, errInvalidInput
+	}
+
+	todo, err := getter(todoListID)
+	if err != nil {
+		return todoItem{}, err
+	}
+
+	if todo.accountID != accountID {
+		return todoItem{}, errPermissionDenied
+	}
+
+	id, t, err := saver(todoListID, description)
+
+	return todoItem{
+		id:          id,
+		todoListID:  todoListID,
+		description: description,
+		completed:   false,
+		createdAt:   t,
+	}, err
+}
+
+func selectTodoItems(
+	todoListID, accountID int,
+	getter todoListGetter,
+	selecter todoItemSelecter,
+) ([]todoItem, error) {
+	result := make([]todoItem, 0)
+
+	todo, err := getter(todoListID)
+	if err != nil {
+		return result, err
+	}
+
+	if todo.accountID != accountID {
+		return result, errPermissionDenied
+	}
+
+	return selecter(todoListID)
+}
+
+func todoItemsContain(items []todoItem, ids []int) bool {
+	m := make(map[int]struct{})
+	for _, item := range items {
+		m[item.id] = struct{}{}
+	}
+
+	for _, id := range ids {
+		if _, exists := m[id]; !exists {
+			return false
+		}
+	}
+	return true
+}
+
+func updateTodoItemsCompleted(
+	todoListID, accountID int,
+	toBeCompleted, toBeActive []int,
+	getter todoListGetter,
+	selecter todoItemSelecter,
+	updater todoItemsCompletedUpdater,
+) error {
+	todo, err := getter(todoListID)
+	if err != nil {
+		return err
+	}
+
+	if todo.accountID != accountID {
+		return errPermissionDenied
+	}
+
+	items, err := selecter(todoListID)
+	if err != nil {
+		return err
+	}
+	if !todoItemsContain(items, toBeCompleted) ||
+		!todoItemsContain(items, toBeActive) {
+		return errPermissionDenied
+	}
+
+	return updater(toBeCompleted, toBeActive)
+}
+
+func deleteTodoItemsCompleted(
+	todoListID, accountID int,
+	getter todoListGetter,
+	deleter todoItemsCompletedDeleter,
+) error {
+	todo, err := getter(todoListID)
+	if err != nil {
+		return err
+	}
+
+	if todo.accountID != accountID {
+		return errPermissionDenied
+	}
+
+	return deleter(todoListID)
 }

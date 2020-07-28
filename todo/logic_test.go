@@ -53,3 +53,23 @@ func TestCreateAccount(t *testing.T) {
 		t.Errorf("should be called, len(hash) == 60, actual: %v", len(hash))
 	}
 }
+
+func TestTodoItemsContain(t *testing.T) {
+	items := []todoItem{
+		{id: 1},
+		{id: 2},
+		{id: 3},
+	}
+
+	ids := []int{1, 2}
+	result := todoItemsContain(items, ids)
+	if result != true {
+		t.Errorf("should be true")
+	}
+
+	ids = []int{1, 2, 4}
+	result = todoItemsContain(items, ids)
+	if result != false {
+		t.Errorf("should be false")
+	}
+}

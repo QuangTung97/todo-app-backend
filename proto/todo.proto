@@ -54,6 +54,46 @@ message DeleteTodoListResquest {
 message DeleteTodoListResponse {
 }
 
+message TodoItem {
+  int32 id = 1;
+  int32 todo_list_id = 2;
+  string description = 3;
+  bool completed = 4;
+  google.protobuf.Timestamp created_at = 5;
+}
+
+message CreateTodoItemRequest {
+  int32 todo_list_id = 1;
+  string description = 2;
+}
+
+message CreateTodoItemResponse {
+  TodoItem item = 1;
+}
+
+message GetTodoItemsRequest {
+  int32 todo_list_id = 1;
+}
+
+message GetTodoItemsResponse {
+  repeated TodoItem todo_items = 1;
+}
+
+message UpdateTodoItemsCompletedRequest {
+  int32 todo_list_id = 1;
+  repeated int32 to_be_completed_ids = 2;
+  repeated int32 to_be_active_ids = 3;
+}
+
+message UpdateTodoItemsCompletedResponse {
+}
+
+message DeleteTodoItemsCompletedRequest {
+  int32 todo_list_id = 1;
+}
+message DeleteTodoItemsCompletedResponse {
+}
+
 service TodoApp {
   rpc CreateAccount (CreateAccountRequest) returns (CreateAccountResponse) {
     option (google.api.http) = {
@@ -78,13 +118,39 @@ service TodoApp {
 
   rpc GetTodoList (GetTodoListRequest) returns (GetTotoListResponse) {
     option (google.api.http) = {
-      get: "/todos",
+      get: "/todos"
     };
   }
 
   rpc DeleteTodoList (DeleteTodoListResquest) returns (DeleteTodoListResponse) {
     option (google.api.http) = {
-      delete: "/todos/{id}",
+      delete: "/todos/{id}"
+    };
+  }
+
+  rpc CreateTodoItem (CreateTodoItemRequest) returns (CreateTodoItemResponse) {
+    option (google.api.http) = {
+      post: "/todo-items",
+      body: "*"
+    };
+  }
+
+  rpc GetTodoItems (GetTodoItemsRequest) returns (GetTodoItemsResponse) {
+    option (google.api.http) = {
+      get: "/todo-items/{todo_list_id}"
+    };
+  }
+
+  rpc UpdateTodoItemsCompleted (UpdateTodoItemsCompletedRequest) returns (UpdateTodoItemsCompletedResponse) {
+    option (google.api.http) = {
+      put: "/todo-items/completed",
+      body: "*"
+    };
+  }
+
+  rpc DeleteTodoItemsCompleted (DeleteTodoItemsCompletedRequest) returns (DeleteTodoItemsCompletedResponse) {
+    option (google.api.http) = {
+      delete: "/todo-items/completed/{todo_list_id}"
     };
   }
 }
